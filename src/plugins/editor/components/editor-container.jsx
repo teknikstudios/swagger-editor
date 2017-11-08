@@ -19,7 +19,7 @@ export default class EditorContainer extends React.Component {
   }
 
   render() {
-    let { specSelectors, getComponent, errSelectors, fn, readOnly, editorSelectors } = this.props
+    let { specSelectors, getComponent, errSelectors, fn, readOnly, editorSelectors, specActions } = this.props
 
     let Editor = getComponent("Editor")
 
@@ -30,10 +30,16 @@ export default class EditorContainer extends React.Component {
     }
 
     let propsForEditor = this.props
+    let fileName = specSelectors.getFileName();
+    if (fileName === null || !fileName || fileName == '') {
+      fileName = 'Untitled';
+    }
 
     return (
       <div id='editor-wrapper' className={wrapperClasses.join(" ")}>
-        { readOnly ? <h2 className="editor-readonly-watermark">Read Only</h2> : null }
+        <div className="filename-wrapper">
+          <h2>{fileName}{ specSelectors.doesHaveUnsavedChanges() ? <span>*</span> : '' } { readOnly ? <span>Read Only</span> : null }</h2>
+        </div>
         <Editor
           {...propsForEditor}
           value={specSelectors.specStr()}
@@ -43,7 +49,7 @@ export default class EditorContainer extends React.Component {
           goToLine={editorSelectors.gotoLine()}
           AST={fn.AST}
         />
-    </div>
+      </div>
     )
   }
 

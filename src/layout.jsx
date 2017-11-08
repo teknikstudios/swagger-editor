@@ -13,7 +13,7 @@ export default class EditorLayout extends React.Component {
   }
 
   render() {
-    let { getComponent } = this.props
+    let { getComponent, specSelectors } = this.props
 
     let UIBaseLayout = getComponent("BaseLayout", true)
 
