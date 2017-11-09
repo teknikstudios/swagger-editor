@@ -31,6 +31,7 @@ export default class EditorContainer extends React.Component {
 
     let propsForEditor = this.props
     let fileName = specSelectors.getFileName();
+    let filePath = 'http://localhost:3000/swagger/viewer/' + specSelectors.getFilePath();
     if (fileName === null || !fileName || fileName == '') {
       fileName = 'Untitled';
     }
@@ -39,6 +40,7 @@ export default class EditorContainer extends React.Component {
       <div id='editor-wrapper' className={wrapperClasses.join(" ")}>
         <div className="filename-wrapper">
           <h2>{fileName}{ specSelectors.doesHaveUnsavedChanges() ? <span>*</span> : '' } { readOnly ? <span>Read Only</span> : null }</h2>
+          { fileName != 'Untitled' ? <h3><a href={filePath} target="_blank">Open in Swagger UI</a></h3> : null}
         </div>
         <Editor
           {...propsForEditor}

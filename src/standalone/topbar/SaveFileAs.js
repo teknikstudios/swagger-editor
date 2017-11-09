@@ -13,7 +13,15 @@ const FILE_MODES = ["open","save","saveas"]
 function Loading(props) {
   const isLoading = props.isLoading;
   if (isLoading) {
-    return <h3>Loading files and directoriess</h3>;
+    return <h3>Loading</h3>;
+  }
+  return null;
+}
+
+function Saving(props) {
+  const isSaving = props.isSaving;
+  if (isSaving) {
+    return <h3>Saving</h3>;
   }
   return null;
 }
@@ -57,6 +65,7 @@ export default class SaveFileAs extends React.Component {
 
     this.state = {
       isLoading: true,
+      isSaving: false,
       rootPath: root,
       rootCurrentDirectory: rootCurrentDirectory,
       newDirectoryFormVisible: false,
@@ -127,6 +136,7 @@ export default class SaveFileAs extends React.Component {
 
     this.setState( {
       isLoading: true,
+      isSaving: false,
       files: [],
       directories: [],
       creatingNewDirectory: false,
@@ -141,15 +151,18 @@ export default class SaveFileAs extends React.Component {
 
     fetch(this.props.source + newPath, {credentials: 'include'})
       .then(response => {
+        if (!response.ok) {
+          throw 'Server error';
+        }
         return response.text()
       })
       .then(data => {
-        console.log('Request succeeded with JSON response', data);
+        //console.log('Request succeeded with JSON response', data);
         this.props.onFileLoaded(data, name, newPath);
         this.setState( { isLoading: false, directories: [], files: [], breadcrumb: [] });
       })
       .catch(function (error) {
-        console.log('Request failed', error);
+        //console.log('Request failed', error);
         alert('Error loading file');
       });
   }
@@ -188,10 +201,10 @@ export default class SaveFileAs extends React.Component {
         let files = [];
 
         for (var i=0; i<posts.directories.length; i++) {
-          directories.push( { name: posts.directories[i], editing: false, actionsOpen: false, editedDirectoryName: '' } );
+          directories.push( { name: posts.directories[i], editing: false, actionsOpen: false, editedDirectoryName: '', deleting: false } );
         }
         for (var i=0; i<posts.files.length; i++) {
-          files.push( { name: posts.files[i].name, editing: false, actionsOpen: false, editedFileName: '' } );
+          files.push( { name: posts.files[i].name, editing: false, actionsOpen: false, editedFileName: '', deleting: false } );
         }
 
         if (name) {
@@ -230,6 +243,8 @@ export default class SaveFileAs extends React.Component {
       return;
     }
 
+    this.setState({ isSaving: true })
+
     const newFilePath = rootPath + (breadcrumb.length > 0 ? (breadcrumb.join('/') + '/') : '') + saveAsFileName;
 
     fetch('http://localhost:3000/svn/' + newFilePath, {
@@ -240,14 +255,18 @@ export default class SaveFileAs extends React.Component {
         },
         body: this.props.contents
       })
-      //.then(status)
-      //.then(json)
+      .then(response => {
+        return response.json()
+      })
+      .then(this.apiResponse)
       .then(data => {
-        console.log('Request succeeded with JSON response', data);
+        //console.log('Request succeeded with JSON response', data);
+        this.setState({ isSaving: false })
         this.props.onSave(this.props.contents, saveAsFileName, newFilePath);
       })
       .catch(function (error) {
         console.log('Request failed', error);
+        this.setState({ isSaving: false })
         alert('Error saving file');
       });
 
@@ -264,7 +283,6 @@ export default class SaveFileAs extends React.Component {
       return;
     }
 
-    //this.setState( { isLoading: true, files: [], directories: [] });
     this.setState({ creatingNewDirectory: true })
 
     const newDirectoryPath = rootPath + (breadcrumb.length > 0 ? (breadcrumb.join('/') + '/') : '') + newDirectoryName + '/';
@@ -307,15 +325,7 @@ export default class SaveFileAs extends React.Component {
    editFileNameValue
   */
   editFileNameValue(file, evt) {
-    let { files } = this.state;
-
-    for (var idx in files) {
-      if (files[idx] == file) {
-        files[idx].editedFileName = evt.target.value;
-        this.setState({files: files});
-        return;
-      }
-    }
+    this.updateFileState(file, {editedFileName: evt.target.value});
   }
 
   /*
@@ -358,15 +368,6 @@ export default class SaveFileAs extends React.Component {
     this.setState({directories: directories, files: files, currentDirectoryActionMenuOpen: false});
   }
 
-  getDirectoryIdx(directory) {
-    for (var idx in this.state.directories) {
-      if (this.state.directories[idx] == directory) {
-        return idx;
-      }
-    }
-    return null;
-  }
-
   deleteDirectory(directory, evt) {
     evt.stopPropagation();
 
@@ -375,18 +376,22 @@ export default class SaveFileAs extends React.Component {
 
     let filePath = rootPath + (breadcrumb.length > 0 ? (breadcrumb.join('/') + '/') : '') + directory.name + '/';
 
+    this.updateDirectoryState(directory, {deleting:true});
+
     fetch(this.props.source + filePath, {
         method: 'delete',
         credentials: 'include',
       })
       .then(response => {
-        return response.text()
+        return response.json()
       })
+      .then(this.apiResponse)
       .then(data => {
-        console.log('Request succeeded with JSON response', data);
+        //console.log('Request succeeded with JSON response', data);
       })
-      .catch(function (error) {
-        console.log('Request failed', error);
+      .catch(error => {
+        //console.log('Request failed', error);
+        this.updateDirectoryState(directory, {deleting:false});
         alert('Error deleting directory');
       });
 
@@ -396,88 +401,121 @@ export default class SaveFileAs extends React.Component {
   editDirectory(directory, evt) {
     evt.stopPropagation();
     this.closeAllActionMenus();
-
-    try {
-      let { directories } = this.state;
-      let idx = this.getDirectoryIdx(directory);
-      directories[idx].editedDirectoryName = directories[idx].name;
-      directories[idx].editing = true;
-      this.setState({directories: directories});
-    } catch (e) {
-      alert('Error editing directory');
-    }
+    this.updateDirectoryState(directory, {editedDirectoryName: directory.name, editing: true, actionsOpen: false});
   }
 
   cancelEditDirectory(directory, evt) {
     evt.stopPropagation();
-
-    try {
-      let { directories } = this.state;
-      let idx = this.getDirectoryIdx(directory);
-      directories[idx].editedDirectoryName = '';
-      directories[idx].editing = false;
-      directories[idx].actionsOpen = false;
-      this.setState({directories: directories});
-    } catch (e) {
-      //alert('Error canceling');
-    }
+    this.updateDirectoryState(directory, {editedDirectoryName:'', editing: false, actionsOpen: false});
   }
 
   saveEditDirectory(directory, evt) {
     evt.stopPropagation();
 
-    try {
-      let { directories } = this.state;
-      let idx = this.getDirectoryIdx(directory);
-      directories[idx].editing = false;
-      directories[idx].actionsOpen = false;
-      this.setState({directories: directories});
-    } catch (e) {
-      alert('Error editing directory');
-    }
+    const { rootPath, rootCurrentDirectory, files, directories } = this.state
+    let { breadcrumb } = this.state;
+
+    let directoryPath = rootPath + (breadcrumb.length > 0 ? (breadcrumb.join('/') + '/') : '') + directory.name + '/';
+    let oldName = directory.name;
+
+    this.updateDirectoryState(directory, {name: directory.editedDirectoryName, editedDirectoryName:'', editing:false, actionsOpen: false});
+
+    fetch(this.props.source + directoryPath, {
+        method: 'put',
+        credentials: 'include',
+        headers: {
+          "Content-type": "text/plain; charset=UTF-8"
+        },
+        body: directory.name
+      })
+      .then(response => {
+        return response.json()
+      })
+      .then(this.apiResponse)
+      .then(data => {
+        //console.log('Request succeeded with JSON response', data);
+      })
+      .catch(error => {
+        alert('Error renaming directory "'+directory.name+'"');
+        this.updateDirectoryState(directory, {name:oldName});
+      });
   }
 
+  updateDirectoryState(directory, newState) {
+    let { directories } = this.state;
+    for (var idx in directories) {
+      if (directories[idx] == directory) {
+        for (var i in newState) {
+          directories[idx][i] = newState[i];
+        }
+        this.setState({directories: directories});
+        return;
+      }
+    }
+  }
 
 
   editFile(file, evt) {
     evt.stopPropagation();
-    let { files } = this.state;
-    for (var idx in files) {
-      if (files[idx] == file) {
-        files[idx].editedFileName = files[idx].name;
-        files[idx].editing = true;
-        files[idx].actionsOpen = false;
-        this.setState({files: files});
-        return;
-      }
-    }
+    this.updateFileState(file, {editedFileName: file.name, editing: true, actionsOpen: false});
   }
 
   cancelEditFile(file, evt) {
     evt.stopPropagation();
+    this.updateFileState(file, {editedFileName: '', editing: false, actionsOpen: false});
+  }
+
+  saveEditFile(file, evt) {
+    evt.stopPropagation();
+
+    const { rootPath, rootCurrentDirectory, files, directories } = this.state
+    let { breadcrumb } = this.state;
+
+    let filePath = rootPath + (breadcrumb.length > 0 ? (breadcrumb.join('/') + '/') : '') + file.name;
+    let oldName = file.name;
+
+    this.updateFileState(file, { name: file.editedFileName, editedFileName: '', editing: false, actionsOpen: false });
+
+    fetch(this.props.source + filePath, {
+        method: 'put',
+        credentials: 'include',
+        headers: {
+          "Content-type": "text/plain; charset=UTF-8",
+          "x-action": "rename"
+        },
+        body: file.name
+      })
+      .then(response => {
+        return response.json()
+      })
+      .then(this.apiResponse)
+      .then(data => {
+        //console.log('Request succeeded with JSON response', data);
+      })
+      .catch(error => {
+        alert('Error renaming file "'+file.name+'"');
+        this.updateFileState(file, {name:oldName});
+      });
+  }
+
+  updateFileState(file, newState) {
     let { files } = this.state;
     for (var idx in files) {
       if (files[idx] == file) {
-        files[idx].editedFileName = '';
-        files[idx].editing = false;
-        files[idx].actionsOpen = false;
+        for (var i in newState) {
+          files[idx][i] = newState[i];
+        }
         this.setState({files: files});
         return;
       }
     }
   }
 
-  saveEditFile(file, evt) {
-    evt.stopPropagation();
-    let { files } = this.state;
-    for (var idx in files) {
-      if (files[idx] == file) {
-        files[idx].editing = false;
-        files[idx].actionsOpen = false;
-        this.setState({files: files});
-        return;
-      }
+  apiResponse(data) {
+    if (data && data.success && data.success == true) {
+      return data;
     }
+    throw 'API ERROR!'
   }
 
   deleteFile(file, evt) {
@@ -488,18 +526,21 @@ export default class SaveFileAs extends React.Component {
 
     let filePath = rootPath + (breadcrumb.length > 0 ? (breadcrumb.join('/') + '/') : '') + file.name;
 
+    this.updateFileState(file, {deleting:true});
+
     fetch(this.props.source + filePath, {
         method: 'delete',
         credentials: 'include',
       })
       .then(response => {
-        return response.text()
+        return response.json()
       })
+      .then(this.apiResponse)
       .then(data => {
-        console.log('Request succeeded with JSON response', data);
+        //console.log('Request succeeded with JSON response', data);
       })
-      .catch(function (error) {
-        console.log('Request failed', error);
+      .catch(error => {
+        this.updateFileState(file, {deleting:false});
         alert('Error deleting file');
       });
   }
@@ -571,7 +612,7 @@ export default class SaveFileAs extends React.Component {
           { this.props.mode == 'open' ? <h1>Open file...</h1> : null }
           { this.props.mode == 'save' ? <h1>Save file...</h1> : null }
           { this.props.mode == 'saveas' ? <h1>Save file as...</h1> : null }
-          <div className="current-directory" style={{overflow:"hidden",position:"relative",display:(this.state.isLoading ? 'none' : 'block')}}>
+          <div className="current-directory" style={{overflow:"hidden",position:"relative",display:((this.state.isLoading || this.state.isSaving) ? 'none' : 'block')}}>
             <span className="actions">
               <button className="btn new-btn" onClick={evt => {this.showNewDirectoryForm(evt)}}></button>
               { breadcrumb.length > 0 ? <button className="btn edit-btn" onClick={evt => {this.editCurrentDirectory(evt)}}></button> : null }
@@ -601,10 +642,11 @@ export default class SaveFileAs extends React.Component {
           </div>
           <div className={browserClassName}>
             <Loading isLoading={this.state.isLoading}></Loading>
-            <ul key="items" className={listClassName} style={{margin:"0",padding:"0",listStyle:"none"}}>
-              { (this.state.breadcrumb.length > 0 && this.state.isLoading == false) ? <li className="directory" onClick={this.loadParentDirectory.bind(this)}>Up one directory</li> : null }
+            <Saving isSaving={this.state.isSaving}></Saving>
+            <ul key="items" className={listClassName} style={{margin:"0",padding:"0",listStyle:"none",display:(this.state.isSaving ? "none":"block")}}>
+              { (this.state.breadcrumb.length > 0 && this.state.isLoading == false && this.state.isSaving == false) ? <li className="directory" onClick={this.loadParentDirectory.bind(this)}>Up one directory</li> : null }
               {this.state.directories.map(child => (
-                <li key={child.name} className="directory">
+                <li key={child.name} className="directory" style={{height:(child.deleting ? '0px' : '40px'),borderBottomWidth:(child.deleting ? '0px' : '1px')}}>
                   <span className="actions">
                     <button className="btn edit-btn" onClick={evt => { this.editDirectory(child,evt) } }></button>
                     <button className="btn delete-btn" onClick={evt => { this.deleteDirectory(child, evt) } }></button>
@@ -625,12 +667,12 @@ export default class SaveFileAs extends React.Component {
                 </li>
               ))}
               {this.state.files.map(child => (
-                <li key={child.name} className="file">
+                <li key={child.name} className="file" style={{height:(child.deleting ? '0px' : '40px'),borderBottomWidth:(child.deleting ? '0px' : '1px')}}>
                   <span className="actions">
                     <button className="btn edit-btn" onClick={evt => { this.editFile(child,evt) } }></button>
                     <button className="btn delete-btn" onClick={evt => { this.deleteFile(child, evt) } }></button>
                   </span>
-                  <span className="label" style={{left: child.actionsOpen ? ((child.actionsWidth+45)+'px') : '30px'}} onClick={e => { if (this.props.mode == 'open') { this.loadFile(child.name) } }}>{
+                  <span className="label" style={{left: child.actionsOpen ? ((child.actionsWidth+45)+'px') : '30px'}} onClick={e => { if (child.editing == false && this.props.mode == 'open') { this.loadFile(child.name) } }}>{
                     child.editing == false ?
                       (child.name) :
                       (<div className="input-group">
@@ -646,12 +688,12 @@ export default class SaveFileAs extends React.Component {
               ))}
             </ul>
           </div>
-          {this.props.mode != 'open' ? <input disabled={creatingNewDirectory || this.state.isLoading} type="text" placeholder="Filename" ref="filenameInput" value={this.state.saveAsFileName} onChange={this.updateSaveAsFileNameValue.bind(this)} style={{display: "block", fontSize: "1.3em", padding: "8px 12px", width: "100%", border: "solid 1px #797979", borderRadius: "0", margin: "20px 0 10px 0" }}/> : null}
+          {this.props.mode != 'open' ? <input disabled={creatingNewDirectory || this.state.isLoading || this.state.isSaving} type="text" placeholder="Filename" ref="filenameInput" value={this.state.saveAsFileName} onChange={this.updateSaveAsFileNameValue.bind(this)} style={{display: "block", fontSize: "1.3em", padding: "8px 12px", width: "100%", border: "solid 1px #797979", borderRadius: "0", margin: "20px 0 10px 0" }}/> : null}
         </div>
         <div className="right" style={{paddingTop: "15px", marginTop: "10px",borderTop: "solid 1px #d4d4d4"}}>
-          <button disabled={creatingNewDirectory || this.state.isLoading} className="btn cancel" onClick={this.props.onCancel}>Cancel</button>
-          { this.props.mode == 'save' ? (<button disabled={creatingNewDirectory || this.state.isLoading} className="btn" onClick={this.onFileSaved.bind(this)}>Save</button>) : null }
-          { this.props.mode == 'saveas' ? (<button disabled={creatingNewDirectory || this.state.isLoading} className="btn" onClick={this.onFileSaved.bind(this)}>Save</button>) : null }
+          <button disabled={creatingNewDirectory || this.state.isLoading || this.state.isSaving} className="btn cancel" onClick={this.props.onCancel}>Cancel</button>
+          { this.props.mode == 'save' ? (<button disabled={creatingNewDirectory || this.state.isLoading || this.state.isSaving} className="btn" onClick={this.onFileSaved.bind(this)}>Save</button>) : null }
+          { this.props.mode == 'saveas' ? (<button disabled={creatingNewDirectory || this.state.isLoading || this.state.isSaving} className="btn" onClick={this.onFileSaved.bind(this)}>Save</button>) : null }
         </div>
       </div>
     )

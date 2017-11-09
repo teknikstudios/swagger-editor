@@ -31,7 +31,8 @@ export const clearFilePath = () => (...args) => {
 }
 
 export function getFileName() {
-  return localStorage.getItem(FILENAME_KEY).length <= 0 ? null : localStorage.getItem(FILENAME_KEY)
+  let fileName = localStorage.getItem(FILENAME_KEY);
+  return fileName && fileName.length > 0 ? fileName : null
 }
 
 export function doesHaveUnsavedChanges() {

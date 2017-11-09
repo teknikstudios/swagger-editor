@@ -110,6 +110,21 @@
     padding: 10px 20px 10px 48px;
   }
 
+  .filename-wrapper h3 {
+    float: right;
+    margin: 0 20px 0 0;
+    padding: 0;
+    line-height: 40px;
+  }
+
+  .filename-wrapper a {
+    display: block;
+    padding-right: 20px;
+    color: white;
+    text-decoration: none;
+    background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" id="Capa_1" x="0px" y="0px" viewBox="0 0 194.818 194.818" style="enable-background:new 0 0 194.818 194.818;" xml:space="preserve" width="12px" height="12px"><g><path d="M185.818,2.161h-57.04c-4.971,0-9,4.029-9,9s4.029,9,9,9h35.312l-86.3,86.3c-3.515,3.515-3.515,9.213,0,12.728   c1.758,1.757,4.061,2.636,6.364,2.636s4.606-0.879,6.364-2.636l86.3-86.3v35.313c0,4.971,4.029,9,9,9s9-4.029,9-9v-57.04   C194.818,6.19,190.789,2.161,185.818,2.161z" fill="#FFFFFF"/><path d="M149,77.201c-4.971,0-9,4.029-9,9v88.456H18v-122h93.778c4.971,0,9-4.029,9-9s-4.029-9-9-9H9c-4.971,0-9,4.029-9,9v140   c0,4.971,4.029,9,9,9h140c4.971,0,9-4.029,9-9V86.201C158,81.23,153.971,77.201,149,77.201z" fill="#FFFFFF"/></g></svg>') center right no-repeat
+  }
+
   .file-chooser {
     margin: 1em;
   }
@@ -129,7 +144,7 @@
   }
 
   .file-chooser .file-browser {
-    height: 200px; overflow-x: hidden; overflow-y: auto;
+    height: 232px; overflow-x: hidden; overflow-y: auto;
   }
 
   .file-chooser .file-browser .directory, .file-chooser .file-browser .file {
@@ -137,7 +152,9 @@
     padding: 0;
     height: 40px;
     position: relative;
+    overflow: hidden;
     border-bottom: solid 1px #ccc;
+    transition: 0.35s;
   }
 
   .file-chooser .file-browser .directory a, .file-chooser .file-browser .file a {
@@ -186,6 +203,7 @@
     position:relative;
     border-collapse:separate;
     box-sizing:border-box;
+    margin-top: 3px;
   }
 
   .file-chooser .input-group > input {
@@ -194,6 +212,7 @@
     display:table-cell;
     float:left;
     width:100%;
+    margin: 0;
   }
 
   .file-chooser .input-group > .input-group-btn {
@@ -202,11 +221,36 @@
     vertical-align:middle;
     display:table-cell;
     width:1%;
-    box-sizing:border-box
+    box-sizing:border-box;
+    line-height: 1em;
   }
 
   .file-chooser .input-group > .input-group-btn > button {
     margin: 0;
+    text-align: center;
+    white-space: nowrap;
+    vertical-align: middle;
+    font-size: 14px;
+    font-weight: 400;
+    user-select: none;
+    background-image: none;
+    border: 1px solid #ccc;
+    touch-action: manipulation;
+    cursor: pointer;
+    display: inline-block;
+    padding: 6px 12px;
+    border-radius: 0;
+    margin: 0 0 0 -1px;
+    position: relative;
+    color: #333;
+    background-color: #fff;
+  }
+
+  .file-chooser .input-group > .input-group-btn > button:last-child {
+    border-top-right-radius: 4px;
+    border-bottom-right-radius: 4px;
+    color: white;
+    background: #ff6160;
   }
 
   .file-chooser .file-browser .btn, .file-chooser .current-directory .btn {
@@ -249,4 +293,17 @@
     margin: 0;
     background: url('data:image/svg+xml;utf8,<svg version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" width="20px" height="20px" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 512 512" style="enable-background:new 0 0 512 512;" xml:space="preserve"><g><path d="M256,192c-35.292,0-64,28.708-64,64s28.708,64,64,64s64-28.708,64-64S291.292,192,256,192z M256,298.667 c-23.521,0-42.667-19.135-42.667-42.667s19.146-42.667,42.667-42.667s42.667,19.135,42.667,42.667S279.521,298.667,256,298.667z"/><path d="M256,384c-35.292,0-64,28.708-64,64c0,35.292,28.708,64,64,64s64-28.708,64-64C320,412.708,291.292,384,256,384z M256,490.667c-23.521,0-42.667-19.135-42.667-42.667s19.146-42.667,42.667-42.667s42.667,19.135,42.667,42.667 S279.521,490.667,256,490.667z"/><path d="M256,128c35.292,0,64-28.708,64-64S291.292,0,256,0s-64,28.708-64,64S220.708,128,256,128z M256,21.333 c23.521,0,42.667,19.135,42.667,42.667S279.521,106.667,256,106.667S213.333,87.531,213.333,64S232.479,21.333,256,21.333z"/></g></svg>') center left no-repeat
   }
+}
+
+.saving-modal h3 {
+  font-size: 22px; margin: 0; padding: 40px 70px 40px 35px; text-align: center;
+}
+
+.saving-modal h3:before {
+	content:' ';
+	display:inline-block;
+	width:35px;
+	height:25px;
+	vertical-align:middle;
+	background: url('data:image/svg+xml;utf8,<svg version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" width="24px" height="30px" viewBox="0 0 24 30" style="enable-background:new 0 0 50 50;" xml:space="preserve"><rect x="0" y="10" width="4" height="10" fill="#333" opacity="0.2"><animate attributeName="opacity" attributeType="XML" values="0.2; 1; .2" begin="0s" dur="0.6s" repeatCount="indefinite" /><animate attributeName="height" attributeType="XML" values="10; 20; 10" begin="0s" dur="0.6s" repeatCount="indefinite" /><animate attributeName="y" attributeType="XML" values="10; 5; 10" begin="0s" dur="0.6s" repeatCount="indefinite" /></rect><rect x="8" y="10" width="4" height="10" fill="#333"  opacity="0.2"><animate attributeName="opacity" attributeType="XML" values="0.2; 1; .2" begin="0.15s" dur="0.6s" repeatCount="indefinite" /><animate attributeName="height" attributeType="XML" values="10; 20; 10" begin="0.15s" dur="0.6s" repeatCount="indefinite" /><animate attributeName="y" attributeType="XML" values="10; 5; 10" begin="0.15s" dur="0.6s" repeatCount="indefinite" /></rect><rect x="16" y="10" width="4" height="10" fill="#333"  opacity="0.2"><animate attributeName="opacity" attributeType="XML" values="0.2; 1; .2" begin="0.3s" dur="0.6s" repeatCount="indefinite" /><animate attributeName="height" attributeType="XML" values="10; 20; 10" begin="0.3s" dur="0.6s" repeatCount="indefinite" /><animate attributeName="y" attributeType="XML" values="10; 5; 10" begin="0.3s" dur="0.6s" repeatCount="indefinite" /></rect></svg>') center left no-repeat
 }

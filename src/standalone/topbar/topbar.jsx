@@ -122,9 +122,11 @@ export default class Topbar extends React.Component {
     if (fileName === null || fileName.length <= 0) {
       this.refs.saveFileModal.show()
     } else {
+      this.refs.savingModal.show()
       Axios.put('http://localhost:3000/svn/' + filePath, editorContent, { headers: { 'Content-Type': 'text/plain' } })
         .then(res => {
           this.onFileLoaded(editorContent, fileName, filePath)
+          this.refs.savingModal.hide()
         });
     }
   }
@@ -338,16 +340,19 @@ export default class Topbar extends React.Component {
             <button className="btn" onClick={this.importFromFile}>Open file</button>
           </div>
         </Modal>
-        <Modal className="swagger-ui modal" ref="openFileModal">
-          <SaveFileAs mode="open" source="http://localhost:3000/svn/" onFileLoaded={this.onFileLoaded.bind(this)} root="/snippets/" onCancel={this.hideOpenFileModal.bind(this)}>
+        <Modal className="swagger-ui modal saving-modal" closeOnClick={false} ref="savingModal">
+          <h3>Saving</h3>
+        </Modal>
+        <Modal className="swagger-ui modal" closeOnClick={false} ref="openFileModal">
+          <SaveFileAs mode="open" source="http://localhost:3000/svn/" onFileLoaded={this.onFileLoaded.bind(this)} root="/specs/" onCancel={this.hideOpenFileModal.bind(this)}>
           </SaveFileAs>
         </Modal>
-        <Modal className="swagger-ui modal" ref="saveFileModal">
-          <SaveFileAs mode="save" source="http://localhost:3000/svn/" contents={this.props.specSelectors.specStr()} root="/snippets/" onSave={this.onFileSaveAs.bind(this)} onCancel={this.hideSaveFileModal.bind(this)}>
+        <Modal className="swagger-ui modal" closeOnClick={false} ref="saveFileModal">
+          <SaveFileAs mode="save" source="http://localhost:3000/svn/" contents={this.props.specSelectors.specStr()} root="/specs/" onSave={this.onFileSaveAs.bind(this)} onCancel={this.hideSaveFileModal.bind(this)}>
           </SaveFileAs>
         </Modal>
-        <Modal className="swagger-ui modal" ref="saveFileAsModal">
-          <SaveFileAs mode="saveas" source="http://localhost:3000/svn/" contents={this.props.specSelectors.specStr()} root="/snippets/" onSave={this.onFileSaveAs.bind(this)} onCancel={this.hideSaveFileAsModal.bind(this)}>
+        <Modal className="swagger-ui modal" closeOnClick={false} ref="saveFileAsModal">
+          <SaveFileAs mode="saveas" source="http://localhost:3000/svn/" contents={this.props.specSelectors.specStr()} root="/specs/" onSave={this.onFileSaveAs.bind(this)} onCancel={this.hideSaveFileAsModal.bind(this)}>
           </SaveFileAs>
         </Modal>
       </div>
