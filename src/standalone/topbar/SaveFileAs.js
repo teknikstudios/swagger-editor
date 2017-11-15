@@ -4,7 +4,6 @@
 
 import React, { PureComponent, PropTypes } from "react"
 import ReactDOM from "react-dom"
-import Axios from 'axios';
 import CSSTransitionGroup from "react-transition-group/CSSTransitionGroup"
 import classnames from "classnames"
 
@@ -110,6 +109,17 @@ export default class SaveFileAs extends React.Component {
     //this.serverRequest.abort();
   }
 
+  handleError(error, message, callback) {
+    console.log('Request failed', error);
+
+    if (error && error.code && error.code == 403) {
+      window.location.href = '/';
+    } else if (message) {
+      alert(message);
+      callback.call(this);
+    }
+  }
+
   /*
    loadParentDirectory
   */
@@ -150,22 +160,19 @@ export default class SaveFileAs extends React.Component {
     let newPath = rootPath + (breadcrumb.length > 0 ? (breadcrumb.join('/') + '/') : '') + name;
 
     fetch(this.props.source + newPath, {credentials: 'include'})
-      .then(response => {
-        if (!response.ok) {
-          throw 'Server error';
-        }
-        return response.text()
-      })
+      .then(textResponse)
       .then(data => {
         //console.log('Request succeeded with JSON response', data);
         this.props.onFileLoaded(data, name, newPath);
         this.setState( { isLoading: false, directories: [], files: [], breadcrumb: [] });
       })
-      .catch(function (error) {
-        //console.log('Request failed', error);
-        alert('Error loading file');
+      .catch(error => {
+        this.handleError(error, 'Error loading file', () => {
+
+        });
       });
   }
+
 
   /*
    loadDirectory
@@ -193,10 +200,13 @@ export default class SaveFileAs extends React.Component {
 
     let newPath = rootPath + (breadcrumb.length > 0 ? (breadcrumb.join('/') + '/') : '') + (name ? (name + '/') : '');
 
-    Axios.get(this.props.source + newPath)
-      .then(res => {
-        console.log(res);
-        const posts = res.data;//.data.children.map(obj => obj.data);
+    fetch(this.props.source + newPath, {
+        method: 'get',
+        credentials: 'include'
+      })
+      .then(this.jsonResponse)
+      .then(this.apiResponse)
+      .then(posts => {
         let directories = [];
         let files = [];
 
@@ -214,7 +224,10 @@ export default class SaveFileAs extends React.Component {
         this.setState( { isLoading: false, directories: directories, files: files, breadcrumb: breadcrumb });
       })
       .catch(error => {
-        this.setState( { isLoading: false, directories: directories, files: files, newDirectoryFormVisible: false, newDirectoryName: '' });
+        this.handleError(error, 'Error loading directories', () => {
+          this.setState( { isLoading: false, directories: directories, files: files, newDirectoryFormVisible: false, newDirectoryName: '' });
+          this.props.onCancel();
+        })
       });
   }
 
@@ -235,7 +248,7 @@ export default class SaveFileAs extends React.Component {
   /*
    hideNewDirectoryForm
   */
-  onFileSaved() {
+  onFileSaved(overwrite) {
     const { saveAsFileName, breadcrumb, rootPath } = this.state;
 
     if (saveAsFileName.length <= 0) {
@@ -247,27 +260,35 @@ export default class SaveFileAs extends React.Component {
 
     const newFilePath = rootPath + (breadcrumb.length > 0 ? (breadcrumb.join('/') + '/') : '') + saveAsFileName;
 
+    var headers ={
+      "Content-type": "text/plain; charset=UTF-8"
+    }
+    if (overwrite) {
+      headers['x-action'] = 'overwrite';
+    }
+
     fetch('http://localhost:3000/svn/' + newFilePath, {
         method: 'post',
         credentials: 'include',
-        headers: {
-          "Content-type": "text/plain; charset=UTF-8"
-        },
+        headers: headers,
         body: this.props.contents
       })
-      .then(response => {
-        return response.json()
-      })
+      .then(this.jsonResponse)
       .then(this.apiResponse)
       .then(data => {
         //console.log('Request succeeded with JSON response', data);
         this.setState({ isSaving: false })
         this.props.onSave(this.props.contents, saveAsFileName, newFilePath);
       })
-      .catch(function (error) {
-        console.log('Request failed', error);
-        this.setState({ isSaving: false })
-        alert('Error saving file');
+      .catch(error => {
+        console.log('HERE!', error);
+        if (error && error.reasonCode && error.reasonCode == 409 && confirm('The file already exists. Do you want to overwrite the file?')) {
+          this.onFileSaved(true);
+        } else {
+          this.handleError(error, 'Error saving file', () => {
+            this.setState({ isSaving: false })
+          })
+        }
       });
 
   }
@@ -287,13 +308,20 @@ export default class SaveFileAs extends React.Component {
 
     const newDirectoryPath = rootPath + (breadcrumb.length > 0 ? (breadcrumb.join('/') + '/') : '') + newDirectoryName + '/';
 
-    Axios.post(this.props.source + newDirectoryPath)
-      .then(res => {
+    fetch(this.props.source + newDirectoryPath, {
+        method: 'post',
+        credentials: 'include'
+      })
+      .then(this.jsonResponse)
+      .then(this.apiResponse)
+      .then(posts => {
         this.setState({ creatingNewDirectory: false, newDirectoryName: '', newDirectoryFormVisible: false })
         this.loadDirectory(newDirectoryName);
-      }).catch(err => {
-        alert('Error creating new directory');
-        this.setState({ creatingNewDirectory: false, newDirectoryName: '', newDirectoryFormVisible: false })
+      })
+      .catch(error => {
+        this.handleError(error, 'Error creating new directory', () => {
+          this.setState({ creatingNewDirectory: false, newDirectoryName: '', newDirectoryFormVisible: false })
+        })
       });
   }
 
@@ -382,17 +410,15 @@ export default class SaveFileAs extends React.Component {
         method: 'delete',
         credentials: 'include',
       })
-      .then(response => {
-        return response.json()
-      })
+      .then(this.jsonResponse)
       .then(this.apiResponse)
       .then(data => {
         //console.log('Request succeeded with JSON response', data);
       })
       .catch(error => {
-        //console.log('Request failed', error);
-        this.updateDirectoryState(directory, {deleting:false});
-        alert('Error deleting directory');
+        this.handleError(error, 'Error deleting directory', () => {
+          this.updateDirectoryState(directory, {deleting:false});
+        })
       });
 
   }
@@ -428,16 +454,15 @@ export default class SaveFileAs extends React.Component {
         },
         body: directory.name
       })
-      .then(response => {
-        return response.json()
-      })
+      .then(this.jsonResponse)
       .then(this.apiResponse)
       .then(data => {
         //console.log('Request succeeded with JSON response', data);
       })
       .catch(error => {
-        alert('Error renaming directory "'+directory.name+'"');
-        this.updateDirectoryState(directory, {name:oldName});
+        this.handleError(error, 'Error renaming directory "'+directory.name+'"', () => {
+          this.updateDirectoryState(directory, {name:oldName});
+        })
       });
   }
 
@@ -485,16 +510,15 @@ export default class SaveFileAs extends React.Component {
         },
         body: file.name
       })
-      .then(response => {
-        return response.json()
-      })
+      .then(this.jsonResponse)
       .then(this.apiResponse)
       .then(data => {
         //console.log('Request succeeded with JSON response', data);
       })
       .catch(error => {
-        alert('Error renaming file "'+file.name+'"');
-        this.updateFileState(file, {name:oldName});
+        this.handleError(error, 'Error renaming file "'+file.name+'"', () => {
+          this.updateFileState(file, {name:oldName});
+        })
       });
   }
 
@@ -511,12 +535,29 @@ export default class SaveFileAs extends React.Component {
     }
   }
 
+  textResponse(response) {
+    if (!response.ok) {
+      throw {code:response.status,reason:response.statusText}
+    }
+    return response.text()
+  }
+
+  jsonResponse(response) {
+    if (!response.ok) {
+      throw {code:response.status,reason:response.statusText}
+    }
+
+    return response.json();
+  }
+
   apiResponse(data) {
     if (data && data.success && data.success == true) {
       return data;
     }
-    throw 'API ERROR!'
+    throw {code:500,reasonCode:((data && data.errorCode) ? data.errorCode : 0),reason:((data && data.errorMsg) ? data.errorMsg : 'Server error')}
   }
+
+
 
   deleteFile(file, evt) {
     evt.stopPropagation();
@@ -532,16 +573,15 @@ export default class SaveFileAs extends React.Component {
         method: 'delete',
         credentials: 'include',
       })
-      .then(response => {
-        return response.json()
-      })
+      .then(this.jsonResponse)
       .then(this.apiResponse)
       .then(data => {
         //console.log('Request succeeded with JSON response', data);
       })
       .catch(error => {
-        this.updateFileState(file, {deleting:false});
-        alert('Error deleting file');
+        this.handleError(error, 'Error deleting file', () => {
+          this.updateFileState(file, {deleting:false});
+        })
       });
   }
 
@@ -692,8 +732,8 @@ export default class SaveFileAs extends React.Component {
         </div>
         <div className="right" style={{paddingTop: "15px", marginTop: "10px",borderTop: "solid 1px #d4d4d4"}}>
           <button disabled={creatingNewDirectory || this.state.isLoading || this.state.isSaving} className="btn cancel" onClick={this.props.onCancel}>Cancel</button>
-          { this.props.mode == 'save' ? (<button disabled={creatingNewDirectory || this.state.isLoading || this.state.isSaving} className="btn" onClick={this.onFileSaved.bind(this)}>Save</button>) : null }
-          { this.props.mode == 'saveas' ? (<button disabled={creatingNewDirectory || this.state.isLoading || this.state.isSaving} className="btn" onClick={this.onFileSaved.bind(this)}>Save</button>) : null }
+          { this.props.mode == 'save' ? (<button disabled={creatingNewDirectory || this.state.isLoading || this.state.isSaving} className="btn" onClick={evt => { this.onFileSaved(false) }}>Save</button>) : null }
+          { this.props.mode == 'saveas' ? (<button disabled={creatingNewDirectory || this.state.isLoading || this.state.isSaving} className="btn" onClick={evt => { this.onFileSaved(false) }}>Save</button>) : null }
         </div>
       </div>
     )

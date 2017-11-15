@@ -2,7 +2,6 @@ import React, { PropTypes } from "react"
 import Swagger from "swagger-client"
 import "whatwg-fetch"
 import DropdownMenu from "./DropdownMenu"
-import FileChooser from "./FileChooser"
 import SaveFileAs from "./SaveFileAs"
 import Axios from 'axios';
 import Modal from "boron/DropModal"
