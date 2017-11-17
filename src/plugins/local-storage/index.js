@@ -18,7 +18,11 @@ export const updateSpec = (ori) => (...args) => {
 
 export const onFileLoaded = (contents, filename, filepath) => (...args) => {
   hasUnsavedChanges = false
-  saveFilePathToStorage(filename, filepath, contents)
+  saveFilePathAndContentsToStorage(filename, filepath, contents)
+}
+
+export const onFileRenamed = (filename, filepath) => (...args) => {
+  saveFilePathToStorage(filename, filepath)
 }
 
 export const setFilePath = (filepath) => (...args) => {
@@ -27,7 +31,7 @@ export const setFilePath = (filepath) => (...args) => {
 }
 
 export const clearFilePath = () => (...args) => {
-  saveFilePathToStorage("", "", "")
+  saveFilePathAndContentsToStorage("", "", "")
 }
 
 export function getFileName() {
@@ -66,6 +70,7 @@ export default function(system) {
         },
         actions: {
           onFileLoaded,
+          onFileRenamed,
           clearFilePath,
           setFilePath,
         },
@@ -87,7 +92,25 @@ function saveContentToStorage(str) {
   return localStorage.setItem(CONTENT_KEY, str)
 }
 
-function saveFilePathToStorage(filename, filepath, contents) {
+function saveFilePathToStorage(filename, filepath) {
+  if (filename === undefined || filename === null) {
+    filename = ""
+  }
+
+  if (filepath === undefined || filepath === null) {
+    filepath = ""
+  }
+
+  var contents = localStorage.getItem(CONTENT_KEY)
+  lastSavedStr = contents
+  localStorage.setItem(FILENAME_KEY, filename)
+  localStorage.setItem(FILEPATH_KEY, filepath)
+  localStorage.setItem(LASTSAVEDCONTENT_KEY, lastSavedStr)
+  saveContentToStorage(contents);
+  return  true
+}
+
+function saveFilePathAndContentsToStorage(filename, filepath, contents) {
   if (filename === undefined || filename === null) {
     filename = ""
   }
@@ -100,5 +123,6 @@ function saveFilePathToStorage(filename, filepath, contents) {
   localStorage.setItem(FILENAME_KEY, filename)
   localStorage.setItem(FILEPATH_KEY, filepath)
   localStorage.setItem(LASTSAVEDCONTENT_KEY, contents)
+  saveContentToStorage(lastSavedStr);
   return  true
 }

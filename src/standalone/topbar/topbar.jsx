@@ -274,6 +274,42 @@ export default class Topbar extends React.Component {
     this.onFileLoaded(contents, filename, filepath)
   }
 
+  onFileDeleted = (name, path) => {
+    let filePath = this.props.specSelectors.getFilePath();
+    let fileName = this.props.specSelectors.getFileName();
+
+    if (name == fileName && path == filePath) {
+      this.clearEditor();
+    }
+  }
+
+  onFileRenamed = (oldName, oldPath, newName, newPath) => {
+    let filePath = this.props.specSelectors.getFilePath();
+    let fileName = this.props.specSelectors.getFileName();
+
+    if (oldName == fileName && oldPath == filePath) {
+      this.props.specActions.onFileRenamed(newName, newPath);
+    }
+  }
+
+  onDirectoryDeleted = (name, path) => {
+    let filePath = this.props.specSelectors.getFilePath();
+    let fileName = this.props.specSelectors.getFileName();
+
+    if (filePath.substr(0, path.length) == path) {
+      this.clearEditor();
+    }
+  }
+
+  onDirectoryRenamed = (oldName, oldPath, newName, newPath) => {
+    let filePath = this.props.specSelectors.getFilePath();
+    let fileName = this.props.specSelectors.getFileName();
+
+    if (filePath.substr(0, oldPath.length) == oldPath) {
+      var newFilePath = newPath + filePath.substr(oldPath.length)
+      this.props.specActions.onFileRenamed(fileName, newFilePath);
+    }
+  }
 
   /*
    render
@@ -343,15 +379,15 @@ export default class Topbar extends React.Component {
           <h3>Saving</h3>
         </Modal>
         <Modal className="swagger-ui modal" closeOnClick={false} ref="openFileModal">
-          <SaveFileAs mode="open" source="http://localhost:3000/svn/" onFileLoaded={this.onFileLoaded.bind(this)} root="/specs/" onCancel={this.hideOpenFileModal.bind(this)}>
+          <SaveFileAs mode="open" source="http://localhost:3000/svn/" onFileLoaded={this.onFileLoaded.bind(this)} onFileRename={this.onFileRenamed.bind(this)} onFileDelete={this.onFileDeleted.bind(this)} onDirectoryRename={this.onDirectoryRenamed.bind(this)} onDirectoryDelete={this.onDirectoryDeleted.bind(this)} root="/specs/" onCancel={this.hideOpenFileModal.bind(this)}>
           </SaveFileAs>
         </Modal>
         <Modal className="swagger-ui modal" closeOnClick={false} ref="saveFileModal">
-          <SaveFileAs mode="save" source="http://localhost:3000/svn/" contents={this.props.specSelectors.specStr()} root="/specs/" onSave={this.onFileSaveAs.bind(this)} onCancel={this.hideSaveFileModal.bind(this)}>
+          <SaveFileAs mode="save" source="http://localhost:3000/svn/" contents={this.props.specSelectors.specStr()} root="/specs/" onSave={this.onFileSaveAs.bind(this)} onFileRename={this.onFileRenamed.bind(this)} onFileDelete={this.onFileDeleted.bind(this)} onDirectoryRename={this.onDirectoryRenamed.bind(this)} onDirectoryDelete={this.onDirectoryDeleted.bind(this)} onCancel={this.hideSaveFileModal.bind(this)}>
           </SaveFileAs>
         </Modal>
         <Modal className="swagger-ui modal" closeOnClick={false} ref="saveFileAsModal">
-          <SaveFileAs mode="saveas" source="http://localhost:3000/svn/" contents={this.props.specSelectors.specStr()} root="/specs/" onSave={this.onFileSaveAs.bind(this)} onCancel={this.hideSaveFileAsModal.bind(this)}>
+          <SaveFileAs mode="saveas" source="http://localhost:3000/svn/" contents={this.props.specSelectors.specStr()} root="/specs/" onSave={this.onFileSaveAs.bind(this)} onFileRename={this.onFileRenamed.bind(this)} onFileDelete={this.onFileDeleted.bind(this)} onDirectoryRename={this.onDirectoryRenamed.bind(this)} onDirectoryDelete={this.onDirectoryDeleted.bind(this)} onCancel={this.hideSaveFileAsModal.bind(this)}>
           </SaveFileAs>
         </Modal>
       </div>

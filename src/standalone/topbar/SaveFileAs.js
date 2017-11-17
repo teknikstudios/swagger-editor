@@ -33,6 +33,10 @@ export default class SaveFileAs extends React.Component {
     contents: PropTypes.string,
     onSave: React.PropTypes.func,
     onCancel: React.PropTypes.func,
+    onDirectoryRename: React.PropTypes.func,
+    onDirectoryDelete: React.PropTypes.func,
+    onFileRename: React.PropTypes.func,
+    onFileDelete: React.PropTypes.func,
     onFileLoaded: React.PropTypes.func,
     mode: PropTypes.oneOf(FILE_MODES),
   };
@@ -42,8 +46,12 @@ export default class SaveFileAs extends React.Component {
     size: null,
     root: null,
     contents: '',
-    onFileLoaded: function(contents,name,path){},
     onSave: function(filepath){},
+    onDirectoryRename: function(oldName,newName,newPath){},
+    onDirectoryDelete: function(name,path){},
+    onFileLoaded: function(contents,name,path){},
+    onFileRename: function(oldName,newName,newPath){},
+    onFileDelete: function(name,path){},
     onCancel: function(){},
     mode: 'open'
   };
@@ -160,7 +168,7 @@ export default class SaveFileAs extends React.Component {
     let newPath = rootPath + (breadcrumb.length > 0 ? (breadcrumb.join('/') + '/') : '') + name;
 
     fetch(this.props.source + newPath, {credentials: 'include'})
-      .then(textResponse)
+      .then(this.textResponse)
       .then(data => {
         //console.log('Request succeeded with JSON response', data);
         this.props.onFileLoaded(data, name, newPath);
@@ -168,7 +176,8 @@ export default class SaveFileAs extends React.Component {
       })
       .catch(error => {
         this.handleError(error, 'Error loading file', () => {
-
+          this.setState( { isLoading: false, directories: [], files: [], breadcrumb: [] });
+          this.loadDirectory();
         });
       });
   }
@@ -399,14 +408,18 @@ export default class SaveFileAs extends React.Component {
   deleteDirectory(directory, evt) {
     evt.stopPropagation();
 
+    if (!confirm('Are you sure you want to delete this directory and all of its contents?')) {
+      return;
+    }
+
     const { rootPath, rootCurrentDirectory, files, directories } = this.state
     let { breadcrumb } = this.state;
 
-    let filePath = rootPath + (breadcrumb.length > 0 ? (breadcrumb.join('/') + '/') : '') + directory.name + '/';
+    let directoryPath = rootPath + (breadcrumb.length > 0 ? (breadcrumb.join('/') + '/') : '') + directory.name + '/';
 
     this.updateDirectoryState(directory, {deleting:true});
 
-    fetch(this.props.source + filePath, {
+    fetch(this.props.source + directoryPath, {
         method: 'delete',
         credentials: 'include',
       })
@@ -414,6 +427,7 @@ export default class SaveFileAs extends React.Component {
       .then(this.apiResponse)
       .then(data => {
         //console.log('Request succeeded with JSON response', data);
+        this.props.onDirectoryDelete(directory.name, directoryPath);
       })
       .catch(error => {
         this.handleError(error, 'Error deleting directory', () => {
@@ -442,7 +456,9 @@ export default class SaveFileAs extends React.Component {
     let { breadcrumb } = this.state;
 
     let directoryPath = rootPath + (breadcrumb.length > 0 ? (breadcrumb.join('/') + '/') : '') + directory.name + '/';
+    let newDirectoryPath = rootPath + (breadcrumb.length > 0 ? (breadcrumb.join('/') + '/') : '') + directory.editedDirectoryName + '/';
     let oldName = directory.name;
+    let newName = directory.editedDirectoryName;
 
     this.updateDirectoryState(directory, {name: directory.editedDirectoryName, editedDirectoryName:'', editing:false, actionsOpen: false});
 
@@ -458,6 +474,7 @@ export default class SaveFileAs extends React.Component {
       .then(this.apiResponse)
       .then(data => {
         //console.log('Request succeeded with JSON response', data);
+        this.props.onDirectoryRename(oldName, directoryPath, newName, newDirectoryPath);
       })
       .catch(error => {
         this.handleError(error, 'Error renaming directory "'+directory.name+'"', () => {
@@ -497,7 +514,9 @@ export default class SaveFileAs extends React.Component {
     let { breadcrumb } = this.state;
 
     let filePath = rootPath + (breadcrumb.length > 0 ? (breadcrumb.join('/') + '/') : '') + file.name;
+    let newFilePath = rootPath + (breadcrumb.length > 0 ? (breadcrumb.join('/') + '/') : '') + file.editedFileName;
     let oldName = file.name;
+    let newName = file.editedFileName;
 
     this.updateFileState(file, { name: file.editedFileName, editedFileName: '', editing: false, actionsOpen: false });
 
@@ -514,6 +533,7 @@ export default class SaveFileAs extends React.Component {
       .then(this.apiResponse)
       .then(data => {
         //console.log('Request succeeded with JSON response', data);
+        this.props.onFileRename(oldName, filePath, newName, newFilePath);
       })
       .catch(error => {
         this.handleError(error, 'Error renaming file "'+file.name+'"', () => {
@@ -562,6 +582,10 @@ export default class SaveFileAs extends React.Component {
   deleteFile(file, evt) {
     evt.stopPropagation();
 
+    if (!confirm('Are you sure you want to delete this file?')) {
+      return;
+    }
+
     const { rootPath, rootCurrentDirectory, files, directories } = this.state
     let { breadcrumb } = this.state;
 
@@ -577,6 +601,7 @@ export default class SaveFileAs extends React.Component {
       .then(this.apiResponse)
       .then(data => {
         //console.log('Request succeeded with JSON response', data);
+        this.props.onFileDelete(file.name, filePath);
       })
       .catch(error => {
         this.handleError(error, 'Error deleting file', () => {
@@ -611,12 +636,81 @@ export default class SaveFileAs extends React.Component {
 
   saveEditCurrentDirectory(evt) {
     evt.stopPropagation();
-    this.setState({editingCurrentDirectory: false, currentDirectoryActionMenuOpen: false});
+
+    const { rootPath, rootCurrentDirectory, editedCurrentDirectoryName, files, directories } = this.state
+    let { breadcrumb } = this.state;
+
+    if (breadcrumb.length <= 0) {
+      alert('Can not rename the root directory');
+      return;
+    }
+
+    this.setState({isLoading: true, editedCurrentDirectoryName: '', editingCurrentDirectory: false, currentDirectoryActionMenuOpen: false});
+
+    let directoryPath = rootPath + breadcrumb.join('/') + '/';
+    let oldName = breadcrumb.pop()
+    let newName = editedCurrentDirectoryName;
+    let newDirectoryPath = rootPath + breadcrumb.join('/') + editedCurrentDirectoryName + '/';
+
+    fetch(this.props.source + directoryPath, {
+        method: 'put',
+        credentials: 'include',
+        headers: {
+          "Content-type": "text/plain; charset=UTF-8"
+        },
+        body: newName
+      })
+      .then(this.jsonResponse)
+      .then(this.apiResponse)
+      .then(data => {
+        //console.log('Request succeeded with JSON response', data);
+        breadcrumb.push(newName);
+        this.setState({isLoading: false, breadcrumb: breadcrumb});
+        this.props.onDirectoryRename(oldName, directoryPath, newName, newDirectoryPath);
+      })
+      .catch(error => {
+        this.handleError(error, 'Error renaming directory "'+oldName+'"', () => {
+          breadcrumb.push(oldName);
+          this.setState({isLoading: false, breadcrumb: breadcrumb});
+        })
+      });
   }
 
-  deleteCurrentDirectory() {
-    const {breadcrumb} = this.state;
-    this.setState({editedCurrentDirectoryName: breadcrumb[breadcrumb.length - 1], editingCurrentDirectory: true, currentDirectoryActionMenuOpen: false});
+  deleteCurrentDirectory(evt) {
+    evt.stopPropagation();
+
+    const { rootPath, rootCurrentDirectory, files, directories } = this.state
+    let { breadcrumb } = this.state;
+
+    if (breadcrumb.length <= 0) {
+      alert('Can not delete the root directory');
+      return;
+    }
+
+    if (!confirm('Are you sure you want to delete this directory and all of its contents?')) {
+      return;
+    }
+
+    let directoryPath = rootPath + breadcrumb.join('/') + '/';
+    this.setState({isLoading: true, currentDirectoryActionMenuOpen: false});
+
+    fetch(this.props.source + directoryPath, {
+        method: 'delete',
+        credentials: 'include',
+      })
+      .then(this.jsonResponse)
+      .then(this.apiResponse)
+      .then(data => {
+        //console.log('Request succeeded with JSON response', data);
+        this.setState({isLoading: false});
+        this.loadParentDirectory();
+        this.props.onDirectoryDelete(breadcrumb[breadcrumb.length - 1], directoryPath);
+      })
+      .catch(error => {
+        this.handleError(error, 'Error deleting directory', () => {
+          this.setState({isLoading: false});
+        })
+      });
   }
 
 
@@ -683,8 +777,8 @@ export default class SaveFileAs extends React.Component {
           <div className={browserClassName}>
             <Loading isLoading={this.state.isLoading}></Loading>
             <Saving isSaving={this.state.isSaving}></Saving>
-            <ul key="items" className={listClassName} style={{margin:"0",padding:"0",listStyle:"none",display:(this.state.isSaving ? "none":"block")}}>
-              { (this.state.breadcrumb.length > 0 && this.state.isLoading == false && this.state.isSaving == false) ? <li className="directory" onClick={this.loadParentDirectory.bind(this)}>Up one directory</li> : null }
+            <ul key="items" className={listClassName} style={{margin:"0",padding:"0",listStyle:"none",display:((this.state.isSaving || this.state.isLoading) ? "none":"block")}}>
+              { (this.state.breadcrumb.length > 0 && this.state.isLoading == false && this.state.isSaving == false) ? <li className="parent-directory" style={{height:'40px',borderBottomWidth:'1px'}}><span className="label" onClick={this.loadParentDirectory.bind(this)}>Up one directory</span></li> : null }
               {this.state.directories.map(child => (
                 <li key={child.name} className="directory" style={{height:(child.deleting ? '0px' : '40px'),borderBottomWidth:(child.deleting ? '0px' : '1px')}}>
                   <span className="actions">
