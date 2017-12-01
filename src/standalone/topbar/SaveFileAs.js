@@ -31,6 +31,7 @@ export default class SaveFileAs extends React.Component {
     className: PropTypes.string,
     root: PropTypes.string,
     contents: PropTypes.string,
+    comments: PropTypes.string,
     onSave: React.PropTypes.func,
     onCancel: React.PropTypes.func,
     onDirectoryRename: React.PropTypes.func,
@@ -46,6 +47,7 @@ export default class SaveFileAs extends React.Component {
     size: null,
     root: null,
     contents: '',
+    comments: '',
     onSave: function(filepath){},
     onDirectoryRename: function(oldName,newName,newPath){},
     onDirectoryDelete: function(name,path){},
@@ -117,6 +119,9 @@ export default class SaveFileAs extends React.Component {
     //this.serverRequest.abort();
   }
 
+  /*
+   handleError
+  */
   handleError(error, message, callback) {
     console.log('Request failed', error);
 
@@ -148,6 +153,9 @@ export default class SaveFileAs extends React.Component {
     this.loadDirectory(parentDirectory);
   }
 
+  /*
+   loadFile
+  */
   loadFile(name) {
     const { rootPath, rootCurrentDirectory, files, directories } = this.state
     let { breadcrumb } = this.state;
@@ -255,7 +263,7 @@ export default class SaveFileAs extends React.Component {
   }
 
   /*
-   hideNewDirectoryForm
+   onFileSaved
   */
   onFileSaved(overwrite) {
     const { saveAsFileName, breadcrumb, rootPath } = this.state;
@@ -276,21 +284,27 @@ export default class SaveFileAs extends React.Component {
       headers['x-action'] = 'overwrite';
     }
 
+    let fileContent = JSON.stringify({
+      type: 'swagger-file',
+      version: '1.0.0',
+      comments: this.props.comments,
+      body: this.props.contents,
+    });
+
     fetch('http://localhost:3000/svn/' + newFilePath, {
         method: 'post',
         credentials: 'include',
         headers: headers,
-        body: this.props.contents
+        body: fileContent
       })
       .then(this.jsonResponse)
       .then(this.apiResponse)
       .then(data => {
         //console.log('Request succeeded with JSON response', data);
         this.setState({ isSaving: false })
-        this.props.onSave(this.props.contents, saveAsFileName, newFilePath);
+        this.props.onSave(fileContent, saveAsFileName, newFilePath);
       })
       .catch(error => {
-        console.log('HERE!', error);
         if (error && error.reasonCode && error.reasonCode == 409 && confirm('The file already exists. Do you want to overwrite the file?')) {
           this.onFileSaved(true);
         } else {
@@ -374,6 +388,9 @@ export default class SaveFileAs extends React.Component {
     });
   }
 
+  /*
+   closeAllActionMenus
+  */
   closeAllActionMenus(options, evt) {
     let { directories,files } = this.state;
 
@@ -405,6 +422,9 @@ export default class SaveFileAs extends React.Component {
     this.setState({directories: directories, files: files, currentDirectoryActionMenuOpen: false});
   }
 
+  /*
+   deleteDirectory
+  */
   deleteDirectory(directory, evt) {
     evt.stopPropagation();
 
@@ -437,18 +457,26 @@ export default class SaveFileAs extends React.Component {
 
   }
 
-
+  /*
+   editDirectory
+  */
   editDirectory(directory, evt) {
     evt.stopPropagation();
     this.closeAllActionMenus();
     this.updateDirectoryState(directory, {editedDirectoryName: directory.name, editing: true, actionsOpen: false});
   }
 
+  /*
+   cancelEditDirectory
+  */
   cancelEditDirectory(directory, evt) {
     evt.stopPropagation();
     this.updateDirectoryState(directory, {editedDirectoryName:'', editing: false, actionsOpen: false});
   }
 
+  /*
+   saveEditDirectory
+  */
   saveEditDirectory(directory, evt) {
     evt.stopPropagation();
 
@@ -483,6 +511,9 @@ export default class SaveFileAs extends React.Component {
       });
   }
 
+  /*
+   updateDirectoryState
+  */
   updateDirectoryState(directory, newState) {
     let { directories } = this.state;
     for (var idx in directories) {
@@ -496,17 +527,25 @@ export default class SaveFileAs extends React.Component {
     }
   }
 
-
+  /*
+   editFile
+  */
   editFile(file, evt) {
     evt.stopPropagation();
     this.updateFileState(file, {editedFileName: file.name, editing: true, actionsOpen: false});
   }
 
+  /*
+   cancelEditFile
+  */
   cancelEditFile(file, evt) {
     evt.stopPropagation();
     this.updateFileState(file, {editedFileName: '', editing: false, actionsOpen: false});
   }
 
+  /*
+   saveEditFile
+  */
   saveEditFile(file, evt) {
     evt.stopPropagation();
 
@@ -542,6 +581,9 @@ export default class SaveFileAs extends React.Component {
       });
   }
 
+  /*
+   updateFileState
+  */
   updateFileState(file, newState) {
     let { files } = this.state;
     for (var idx in files) {
@@ -555,6 +597,9 @@ export default class SaveFileAs extends React.Component {
     }
   }
 
+  /*
+   textResponse
+  */
   textResponse(response) {
     if (!response.ok) {
       throw {code:response.status,reason:response.statusText}
@@ -562,6 +607,9 @@ export default class SaveFileAs extends React.Component {
     return response.text()
   }
 
+  /*
+   jsonResponse
+  */
   jsonResponse(response) {
     if (!response.ok) {
       throw {code:response.status,reason:response.statusText}
@@ -570,6 +618,9 @@ export default class SaveFileAs extends React.Component {
     return response.json();
   }
 
+  /*
+   apiResponse
+  */
   apiResponse(data) {
     if (data && data.success && data.success == true) {
       return data;
@@ -577,8 +628,9 @@ export default class SaveFileAs extends React.Component {
     throw {code:500,reasonCode:((data && data.errorCode) ? data.errorCode : 0),reason:((data && data.errorMsg) ? data.errorMsg : 'Server error')}
   }
 
-
-
+  /*
+   deleteFile
+  */
   deleteFile(file, evt) {
     evt.stopPropagation();
 
@@ -610,30 +662,43 @@ export default class SaveFileAs extends React.Component {
       });
   }
 
-
-
+  /*
+   toggleCurrentDirectoryActionMenu
+  */
   toggleCurrentDirectoryActionMenu(evt) {
     this.closeAllActionMenus();
     this.setState({currentDirectoryActionMenuOpen: !this.state.currentDirectoryActionMenuOpen, currentDirectoryActionsWidth: ReactDOM.findDOMNode(evt.currentTarget.parentElement).querySelector('.actions').offsetWidth });
   }
 
+  /*
+   editCurrentDirectoryNameValue
+  */
   editCurrentDirectoryNameValue(evt) {
     this.setState({
       editedCurrentDirectoryName: evt.target.value
     });
   }
 
+  /*
+   editCurrentDirectory
+  */
   editCurrentDirectory(evt) {
     const {breadcrumb} = this.state;
     evt.stopPropagation();
     this.setState({editedCurrentDirectoryName: breadcrumb[breadcrumb.length - 1], editingCurrentDirectory: true, currentDirectoryActionMenuOpen: false});
   }
 
+  /*
+   cancelEditCurrentDirectory
+  */
   cancelEditCurrentDirectory(evt) {
     evt.stopPropagation();
     this.setState({editedCurrentDirectoryName: '', editingCurrentDirectory: false, currentDirectoryActionMenuOpen: false});
   }
 
+  /*
+   saveEditCurrentDirectory
+  */
   saveEditCurrentDirectory(evt) {
     evt.stopPropagation();
 
@@ -676,6 +741,9 @@ export default class SaveFileAs extends React.Component {
       });
   }
 
+  /*
+   deleteCurrentDirectory
+  */
   deleteCurrentDirectory(evt) {
     evt.stopPropagation();
 
@@ -712,7 +780,6 @@ export default class SaveFileAs extends React.Component {
         })
       });
   }
-
 
   /*
    render

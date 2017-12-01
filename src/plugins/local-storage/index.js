@@ -3,6 +3,7 @@ const CONTENT_KEY = "swagger-editor-content"
 const LASTSAVEDCONTENT_KEY = "swagger-editor-lastsavedcontent"
 const FILENAME_KEY = "swagger-editor-filename"
 const FILEPATH_KEY = "swagger-editor-filepath"
+const COMMENTS_KEY = "swagger-editor-comments"
 
 let localStorage = window.localStorage
 let lastSavedStr = ''
@@ -16,13 +17,18 @@ export const updateSpec = (ori) => (...args) => {
   saveContentToStorage(spec)
 }
 
-export const onFileLoaded = (contents, filename, filepath) => (...args) => {
+export const onFileLoaded = (contents, filename, filepath, comments) => (...args) => {
   hasUnsavedChanges = false
   saveFilePathAndContentsToStorage(filename, filepath, contents)
+  saveFileCommentsToStorage(comments)
 }
 
 export const onFileRenamed = (filename, filepath) => (...args) => {
   saveFilePathToStorage(filename, filepath)
+}
+
+export const setComments = (comments) => (...args) => {
+  saveFileCommentsToStorage(comments)
 }
 
 export const setFilePath = (filepath) => (...args) => {
@@ -37,6 +43,11 @@ export const clearFilePath = () => (...args) => {
 export function getFileName() {
   let fileName = localStorage.getItem(FILENAME_KEY);
   return fileName && fileName.length > 0 ? fileName : null
+}
+
+export function getComments() {
+  let comments = localStorage.getItem(COMMENTS_KEY);
+  return comments && comments.length > 0 ? comments : null
 }
 
 export function doesHaveUnsavedChanges() {
@@ -54,7 +65,7 @@ export default function(system) {
       let content = localStorage.getItem(CONTENT_KEY)
       lastSavedStr = localStorage.getItem(LASTSAVEDCONTENT_KEY)
       system.specActions.updateSpec(content)
-      onFileLoaded(lastSavedStr, localStorage.getItem(FILENAME_KEY), localStorage.getItem(FILEPATH_KEY))
+      onFileLoaded(lastSavedStr, localStorage.getItem(FILENAME_KEY), localStorage.getItem(FILEPATH_KEY), localStorage.getItem(COMMENTS_KEY))
       hasUnsavedChanges = content != lastSavedStr
     } else {
       system.specActions.updateSpec("")
@@ -73,9 +84,11 @@ export default function(system) {
           onFileRenamed,
           clearFilePath,
           setFilePath,
+          setComments,
         },
         selectors: {
           getFileName,
+          getComments,
           getFilePath,
           doesHaveUnsavedChanges,
         }
@@ -90,6 +103,15 @@ function saveContentToStorage(str) {
   }
 
   return localStorage.setItem(CONTENT_KEY, str)
+}
+
+function saveFileCommentsToStorage(comments) {
+  if (comments === undefined || comments === null) {
+    comments = ""
+  }
+
+  localStorage.setItem(COMMENTS_KEY, comments)
+  return  true
 }
 
 function saveFilePathToStorage(filename, filepath) {
