@@ -31,7 +31,6 @@ export default class SaveFileAs extends React.Component {
     className: PropTypes.string,
     root: PropTypes.string,
     contents: PropTypes.string,
-    comments: PropTypes.string,
     onSave: React.PropTypes.func,
     onCancel: React.PropTypes.func,
     onDirectoryRename: React.PropTypes.func,
@@ -47,7 +46,6 @@ export default class SaveFileAs extends React.Component {
     size: null,
     root: null,
     contents: '',
-    comments: '',
     onSave: function(filepath){},
     onDirectoryRename: function(oldName,newName,newPath){},
     onDirectoryDelete: function(name,path){},
@@ -85,6 +83,7 @@ export default class SaveFileAs extends React.Component {
       editedCurrentDirectoryName: '',
       newDirectoryName: '',
       saveAsFileName: '',
+      saveAsComments: '',
       breadcrumb: [],
       files: [],
       directories: []
@@ -266,7 +265,7 @@ export default class SaveFileAs extends React.Component {
    onFileSaved
   */
   onFileSaved(overwrite) {
-    const { saveAsFileName, breadcrumb, rootPath } = this.state;
+    const { saveAsFileName, saveAsComments, breadcrumb, rootPath } = this.state;
 
     if (saveAsFileName.length <= 0) {
       alert('Filename is required');
@@ -283,15 +282,13 @@ export default class SaveFileAs extends React.Component {
     if (overwrite) {
       headers['x-action'] = 'overwrite';
     }
+    if (saveAsComments) {
+      headers['x-comments'] = saveAsComments;
+    }
 
-    let fileContent = JSON.stringify({
-      type: 'swagger-file',
-      version: '1.0.0',
-      comments: this.props.comments,
-      body: this.props.contents,
-    });
+    let fileContent = this.props.contents; //JSON.stringify(this.props.contents)
 
-    fetch('http://localhost:3000/svn/' + newFilePath, {
+    fetch('http://127.0.0.1:3000/svn/' + newFilePath, {
         method: 'post',
         credentials: 'include',
         headers: headers,
@@ -385,6 +382,15 @@ export default class SaveFileAs extends React.Component {
   updateSaveAsFileNameValue(evt) {
     this.setState({
       saveAsFileName: evt.target.value
+    });
+  }
+
+  /*
+   updateSaveAsCommentsValue
+  */
+  updateSaveAsCommentsValue(evt) {
+    this.setState({
+      saveAsComments: evt.target.value
     });
   }
 
@@ -890,6 +896,7 @@ export default class SaveFileAs extends React.Component {
             </ul>
           </div>
           {this.props.mode != 'open' ? <input disabled={creatingNewDirectory || this.state.isLoading || this.state.isSaving} type="text" placeholder="Filename" ref="filenameInput" value={this.state.saveAsFileName} onChange={this.updateSaveAsFileNameValue.bind(this)} style={{display: "block", fontSize: "1.3em", padding: "8px 12px", width: "100%", border: "solid 1px #797979", borderRadius: "0", margin: "20px 0 10px 0" }}/> : null}
+          {this.props.mode != 'open' ? <textarea disabled={creatingNewDirectory || this.state.isLoading || this.state.isSaving} placeholder="Comments" ref="commentsInput" onChange={this.updateSaveAsCommentsValue.bind(this)} rows="3" style={{display: "block", fontWeight: "normal", minHeight: "auto", fontSize: "1.3em", padding: "8px 12px", width: "100%", border: "solid 1px #797979", borderRadius: "0", margin: "20px 0 10px 0" }}>{this.state.saveAsCommnets}</textarea> : null}
         </div>
         <div className="right" style={{paddingTop: "15px", marginTop: "10px",borderTop: "solid 1px #d4d4d4"}}>
           <button disabled={creatingNewDirectory || this.state.isLoading || this.state.isSaving} className="btn cancel" onClick={this.props.onCancel}>Cancel</button>

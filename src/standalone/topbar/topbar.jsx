@@ -3,7 +3,7 @@ import Swagger from "swagger-client"
 import "whatwg-fetch"
 import DropdownMenu from "./DropdownMenu"
 import SaveFileAs from "./SaveFileAs"
-import JsonValidatorSettings from "./JsonValidatorSettings"
+import Saving from "./Saving"
 import Modal from "boron/DropModal"
 import downloadFile from "react-file-download"
 import YAML from "js-yaml"
@@ -72,7 +72,6 @@ export default class Topbar extends React.Component {
             YAML.safeDump(YAML.safeLoad(text))
           )
           this.props.specActions.clearFilePath()
-          this.props.specActions.setComments("")
         })
     }
   }
@@ -129,49 +128,12 @@ export default class Topbar extends React.Component {
    saveFile
   */
   saveFile = () => {
-    let editorContent = this.props.specSelectors.specStr()
-    let filePath = this.props.specSelectors.getFilePath();
     let fileName = this.props.specSelectors.getFileName();
-    let editorComments = this.props.specSelectors.getComments()
-    let fileContent = JSON.stringify({
-      type: 'swagger-file',
-      version: '1.0.0',
-      comments: editorComments,
-      body: editorContent,
-    });
 
     if (fileName === null || fileName.length <= 0) {
       this.refs.saveFileModal.show()
     } else {
       this.refs.savingModal.show()
-
-      var headers = {
-        "Content-type": "text/plain; charset=UTF-8"
-      }
-
-      fetch('http://localhost:3000/svn/' + filePath, {
-          method: 'put',
-          credentials: 'include',
-          headers: headers,
-          body: fileContent
-        })
-        .then(this.jsonResponse)
-        .then(this.apiResponse)
-        .then(data => {
-          this.onFileLoaded(fileContent, fileName, filePath)
-          this.refs.savingModal.hide()
-        })
-        .catch(error => {
-          if (error && error.reasonCode && error.reasonCode == 404) {
-            this.refs.savingModal.hide();
-            this.saveFileAs();
-          } else {
-            alert('Error saving file.');
-            this.refs.savingModal.hide();
-          }
-
-        });
-
     }
   }
 
@@ -180,6 +142,13 @@ export default class Topbar extends React.Component {
   */
   hideSaveFileModal = () => {
     this.refs.saveFileModal.hide()
+  }
+
+  /*
+   hideSavingModal
+  */
+  hideSavingModal = () => {
+    this.refs.savingModal.hide()
   }
 
   /*
@@ -248,7 +217,6 @@ export default class Topbar extends React.Component {
       window.localStorage.removeItem("swagger-editor-content")
       this.props.specActions.clearFilePath()
       this.props.specActions.updateSpec("")
-      this.props.specActions.setComments("")
     }
   }
 
@@ -297,21 +265,6 @@ export default class Topbar extends React.Component {
   }
 
   /*
-   showOpenFileModal
-  */
-  showJsonValidatorSettingsModal = () => {
-    this.refs.jsonValidatorSettingsModal.show()
-  }
-
-  /*
-   hideOpenFileModal
-  */
-  hideJsonValidatorSettingsModal = () => {
-    this.refs.jsonValidatorSettingsModal.hide()
-  }
-
-
-  /*
    onFileLoaded
   */
   onFileLoaded = (fileContent, filename, filepath) => {
@@ -320,25 +273,23 @@ export default class Topbar extends React.Component {
     this.hideSaveFileModal()
 
     let contents = "";
-    let comments = "";
 
     if (fileContent && fileContent.length > 0) {
       contents = fileContent;
 
-      try {
+      /*try {
         let jsonContent = JSON.parse(fileContent);
-        if (jsonContent !== null && typeof jsonContent === 'object' && jsonContent.hasOwnProperty('type') && jsonContent.hasOwnProperty('body') && jsonContent.hasOwnProperty('comments') && jsonContent.type == 'swagger-file') {
+        /if (jsonContent !== null && typeof jsonContent === 'object' && jsonContent.hasOwnProperty('type') && jsonContent.hasOwnProperty('body') && jsonContent.type == 'swagger-file') {
           contents = jsonContent.body;
-          comments = jsonContent.comments;
         }
       } catch (err) {
 
-      }
+      }*/
 
       contents = YAML.safeDump(YAML.safeLoad(contents))
     }
 
-    this.props.specActions.onFileLoaded(contents, filename, filepath, comments)
+    this.props.specActions.onFileLoaded(contents, filename, filepath)
     this.props.specActions.updateSpec(contents)
   }
 
@@ -346,7 +297,15 @@ export default class Topbar extends React.Component {
    onFileSaveAs
   */
   onFileSaveAs = (contents, filename, filepath) => {
-    this.onFileLoaded(contents, filename, filepath, this.props.specSelectors.getComments())
+    this.onFileLoaded(contents, filename, filepath)
+  }
+
+  /*
+   onFileSaved
+  */
+  onFileSaved = (contents, filename, filepath) => {
+    this.onFileLoaded(contents, filename, filepath)
+    this.refs.savingModal.hide()
   }
 
   onFileDeleted = (name, path) => {
@@ -438,9 +397,6 @@ export default class Topbar extends React.Component {
               { this.state.clients
                   .map(cli => <li key={cli}><button type="button" onClick={this.downloadGeneratedFile.bind(null, "client", cli)}>{cli}</button></li>) }
             </DropdownMenu> : null }
-            <DropdownMenu {...makeMenuOptions("Settings")}>
-              <li><button type="button" onClick={this.showJsonValidatorSettingsModal}>JSON Validator...</button></li>
-            </DropdownMenu>
           </div>
         </div>
         <Modal className="swagger-ui modal" ref="modal">
@@ -454,25 +410,21 @@ export default class Topbar extends React.Component {
           </div>
         </Modal>
         <Modal className="swagger-ui modal saving-modal" closeOnClick={false} ref="savingModal">
-          <h3>Saving</h3>
-        </Modal>
-        <Modal className="swagger-ui modal" closeOnClick={false} ref="jsonValidatorSettingsModal">
-          <JsonValidatorSettings onCancel={this.hideJsonValidatorSettingsModal} onSave={this.hideJsonValidatorSettingsModal} />
+          <Saving fileContent={() => { return this.props.specSelectors.specStr() }} filePath={() => { return this.props.specSelectors.getFilePath() }} fileName={() => { return this.props.specSelectors.getFileName() }} onSave={this.onFileSaved.bind(this)} onCancel={this.hideSavingModal.bind(this)} />
         </Modal>
         <Modal className="swagger-ui modal" closeOnClick={false} ref="openFileModal">
-          <SaveFileAs mode="open" source="http://localhost:3000/svn/" onFileLoaded={this.onFileLoaded.bind(this)} onFileRename={this.onFileRenamed.bind(this)} onFileDelete={this.onFileDeleted.bind(this)} onDirectoryRename={this.onDirectoryRenamed.bind(this)} onDirectoryDelete={this.onDirectoryDeleted.bind(this)} root="/specs/" onCancel={this.hideOpenFileModal.bind(this)}>
+          <SaveFileAs mode="open" source="http://127.0.0.1:3000/svn/" onFileLoaded={this.onFileLoaded.bind(this)} onFileRename={this.onFileRenamed.bind(this)} onFileDelete={this.onFileDeleted.bind(this)} onDirectoryRename={this.onDirectoryRenamed.bind(this)} onDirectoryDelete={this.onDirectoryDeleted.bind(this)} root="/specs/" onCancel={this.hideOpenFileModal.bind(this)}>
           </SaveFileAs>
         </Modal>
         <Modal className="swagger-ui modal" closeOnClick={false} ref="saveFileModal">
-          <SaveFileAs mode="save" source="http://localhost:3000/svn/" contents={this.props.specSelectors.specStr()} comments={this.props.specSelectors.getComments()} root="/specs/" onSave={this.onFileSaveAs.bind(this)} onFileRename={this.onFileRenamed.bind(this)} onFileDelete={this.onFileDeleted.bind(this)} onDirectoryRename={this.onDirectoryRenamed.bind(this)} onDirectoryDelete={this.onDirectoryDeleted.bind(this)} onCancel={this.hideSaveFileModal.bind(this)}>
+          <SaveFileAs mode="save" source="http://127.0.0.1:3000/svn/" contents={this.props.specSelectors.specStr()} root="/specs/" onSave={this.onFileSaveAs.bind(this)} onFileRename={this.onFileRenamed.bind(this)} onFileDelete={this.onFileDeleted.bind(this)} onDirectoryRename={this.onDirectoryRenamed.bind(this)} onDirectoryDelete={this.onDirectoryDeleted.bind(this)} onCancel={this.hideSaveFileModal.bind(this)}>
           </SaveFileAs>
         </Modal>
         <Modal className="swagger-ui modal" closeOnClick={false} ref="saveFileAsModal">
-          <SaveFileAs mode="saveas" source="http://localhost:3000/svn/" contents={this.props.specSelectors.specStr()} comments={this.props.specSelectors.getComments()} root="/specs/" onSave={this.onFileSaveAs.bind(this)} onFileRename={this.onFileRenamed.bind(this)} onFileDelete={this.onFileDeleted.bind(this)} onDirectoryRename={this.onDirectoryRenamed.bind(this)} onDirectoryDelete={this.onDirectoryDeleted.bind(this)} onCancel={this.hideSaveFileAsModal.bind(this)}>
+          <SaveFileAs mode="saveas" source="http://127.0.0.1:3000/svn/" contents={this.props.specSelectors.specStr()} root="/specs/" onSave={this.onFileSaveAs.bind(this)} onFileRename={this.onFileRenamed.bind(this)} onFileDelete={this.onFileDeleted.bind(this)} onDirectoryRename={this.onDirectoryRenamed.bind(this)} onDirectoryDelete={this.onDirectoryDeleted.bind(this)} onCancel={this.hideSaveFileAsModal.bind(this)}>
           </SaveFileAs>
         </Modal>
       </div>
-
     )
   }
 }
